@@ -157,17 +157,107 @@ interface AIReport {
     marketTrends: string[];
   };
   userPersona: {
+    overview: {
+      totalSegments: number;
+      primarySegmentShare: string;
+      segmentationBasis: string;
+      confidenceLevel: number;
+    };
     primaryPersona: {
       name: string;
-      age: string;
-      gender: string;
-      income: string;
-      occupation: string;
-      location: string;
+      avatar: string;
+      tagline: string;
+      demographics: {
+        ageRange: string;
+        gender: string;
+        income: string;
+        education: string;
+        occupation: string;
+        location: string;
+        familyStatus: string;
+      };
+      lifestyle: {
+        dailyRoutine: string;
+        hobbies: string[];
+        socialActivities: string[];
+        mediaConsumption: string[];
+        technologyUsage: string;
+      };
+      consumptionProfile: {
+        spendingPower: string;
+        pricesSensitivity: string;
+        brandLoyalty: string;
+        purchaseFrequency: string;
+        averageOrderValue: string;
+        preferredPaymentMethods: string[];
+      };
+      psychographics: {
+        coreValues: string[];
+        personality: string[];
+        aspirations: string[];
+        fears: string[];
+      };
+      painPointsAndNeeds: {
+        primaryPainPoints: { point: string; intensity: string }[];
+        unmetNeeds: string[];
+        desiredOutcomes: string[];
+      };
+      purchaseJourney: {
+        awarenessChannels: string[];
+        researchBehavior: string;
+        evaluationCriteria: string[];
+        purchaseTriggers: string[];
+        postPurchaseBehavior: string;
+      };
+      digitalBehavior: {
+        preferredPlatforms: string[];
+        contentPreferences: string[];
+        influencerTypes: string[];
+        onlineShoppingHabits: string;
+        socialMediaUsage: { platform: string; frequency: string; purpose: string }[];
+      };
+      marketingRecommendations: {
+        bestChannels: string[];
+        messagingTone: string;
+        contentTypes: string[];
+        promotionTypes: string[];
+        bestTimeToReach: string;
+      };
     };
-    psychographics: {
-      painPoints: string[];
-      buyingMotivations: string[];
+    secondaryPersona: {
+      name: string;
+      avatar: string;
+      tagline: string;
+      demographics: {
+        ageRange: string;
+        gender: string;
+        income: string;
+        occupation: string;
+      };
+      consumptionProfile: {
+        spendingPower: string;
+        pricesSensitivity: string;
+      };
+      painPointsAndNeeds: {
+        primaryPainPoints: { point: string; intensity: string }[];
+      };
+    };
+    segmentComparison: {
+      dimension: string;
+      primaryValue: string;
+      secondaryValue: string;
+    }[];
+    marketSizing: {
+      estimatedTAM: string;
+      estimatedSAM: string;
+      estimatedSOM: string;
+      growthPotential: string;
+    };
+    acquisitionStrategy: {
+      recommendedChannels: { channel: string; priority: string; reason: string }[];
+      estimatedCAC: string;
+      retentionStrategies: string[];
+      ltvOptimization: string[];
     };
   };
   productStrategy: { overallScore: number };
@@ -194,11 +284,62 @@ interface AIReport {
     priority: number;
     category: string;
   }[];
-  competitorBenchmarks: {
-    name: string;
-    description: string;
-    learningPoints: string[];
-  }[];
+  competitorAnalysis: {
+    overview: {
+      totalCompetitorsAnalyzed: number;
+      marketConcentration: string;
+      competitiveIntensity: string;
+      analysisConfidence: number;
+      dataSourceSummary: string;
+    };
+    marketLandscape: {
+      leaderBrands: string[];
+      emergingBrands: string[];
+      nichePlayersCount: number;
+      marketTrend: string;
+    };
+    positioningMap: {
+      xAxis: string;
+      yAxis: string;
+      currentPosition: { x: string; y: string };
+      recommendedPosition: { x: string; y: string };
+      positioningGap: string;
+    };
+    competitiveAdvantage: {
+      currentAdvantages: string[];
+      sustainableAdvantages: string[];
+      vulnerabilities: string[];
+      recommendedFocus: string[];
+    };
+    competitors: {
+      name: string;
+      category: string;
+      description: string;
+      confidenceLevel: number;
+      dataSource: string;
+      positioning: {
+        targetMarket: string;
+        pricePosition: string;
+        brandPosition: string;
+      };
+      metrics: {
+        estimatedProductCount: string;
+        estimatedPriceRange: string;
+        estimatedMarketShare: string;
+        strengthScore: number;
+      };
+      comparison: {
+        advantages: string[];
+        disadvantages: string[];
+        differentiators: string[];
+      };
+      strategicInsights: {
+        whatToLearn: string[];
+        whatToAvoid: string[];
+        opportunities: string[];
+      };
+    }[];
+  };
 }
 
 interface AggregatedData {
@@ -1078,26 +1219,279 @@ export default function Home() {
                       </CardContent>
                     </Card>
 
+                    {/* 用户画像概览卡片 */}
                     <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />目标用户</CardTitle>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base font-medium flex items-center gap-2"><Users className="w-4 h-4" />目标用户</CardTitle>
+                          <Badge variant="outline" className="text-xs">置信度 {result.report.userPersona.overview.confidenceLevel}%</Badge>
+                        </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center font-bold">
-                            {result.report.userPersona.primaryPersona.name.charAt(0)}
+                      <CardContent className="space-y-3">
+                        {/* 主要用户 */}
+                        <div className="p-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-xl">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-3xl">{result.report.userPersona.primaryPersona.avatar}</span>
+                            <div className="flex-1">
+                              <p className="font-semibold">{result.report.userPersona.primaryPersona.name}</p>
+                              <p className="text-xs text-muted-foreground">{result.report.userPersona.primaryPersona.tagline}</p>
+                            </div>
+                            <Badge>{result.report.userPersona.overview.primarySegmentShare}</Badge>
                           </div>
-                          <div>
-                            <p className="font-medium">{result.report.userPersona.primaryPersona.name}</p>
-                            <p className="text-sm text-muted-foreground">{result.report.userPersona.primaryPersona.age} · {result.report.userPersona.primaryPersona.occupation}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">年龄:</span> {result.report.userPersona.primaryPersona.demographics.ageRange}</div>
+                            <div><span className="text-muted-foreground">收入:</span> {result.report.userPersona.primaryPersona.demographics.income}</div>
+                            <div><span className="text-muted-foreground">职业:</span> {result.report.userPersona.primaryPersona.demographics.occupation}</div>
+                            <div><span className="text-muted-foreground">地区:</span> {result.report.userPersona.primaryPersona.demographics.location}</div>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {result.report.userPersona.psychographics.buyingMotivations.map((m, i) => <Badge key={i} variant="secondary" className="text-xs">{m}</Badge>)}
+                        
+                        {/* 次要用户 */}
+                        <div className="p-3 bg-muted/50 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{result.report.userPersona.secondaryPersona.avatar}</span>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{result.report.userPersona.secondaryPersona.name}</p>
+                              <p className="text-xs text-muted-foreground">{result.report.userPersona.secondaryPersona.tagline}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 市场规模 */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 bg-muted/30 rounded-lg text-center">
+                            <p className="text-muted-foreground">可触达市场</p>
+                            <p className="font-bold">{result.report.userPersona.marketSizing.estimatedTAM}</p>
+                          </div>
+                          <div className="p-2 bg-muted/30 rounded-lg text-center">
+                            <p className="text-muted-foreground">可获取市场</p>
+                            <p className="font-bold">{result.report.userPersona.marketSizing.estimatedSOM}</p>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
+                  
+                  {/* 用户画像详情 - 独立大卡片 */}
+                  <Card className="lg:col-span-12">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        用户画像深度分析
+                        <span className="text-xs font-normal text-muted-foreground ml-2">{result.report.userPersona.overview.segmentationBasis}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* 主要用户详情 */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl">
+                            <span className="text-4xl">{result.report.userPersona.primaryPersona.avatar}</span>
+                            <div>
+                              <h4 className="font-bold text-lg">{result.report.userPersona.primaryPersona.name}</h4>
+                              <p className="text-sm text-muted-foreground">{result.report.userPersona.primaryPersona.tagline}</p>
+                            </div>
+                          </div>
+
+                          {/* 人口统计 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><Users className="w-3 h-3" />人口特征</h5>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">年龄:</span> {result.report.userPersona.primaryPersona.demographics.ageRange}</div>
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">性别:</span> {result.report.userPersona.primaryPersona.demographics.gender}</div>
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">收入:</span> {result.report.userPersona.primaryPersona.demographics.income}</div>
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">学历:</span> {result.report.userPersona.primaryPersona.demographics.education}</div>
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">职业:</span> {result.report.userPersona.primaryPersona.demographics.occupation}</div>
+                              <div className="p-2 bg-muted/30 rounded"><span className="text-muted-foreground">地区:</span> {result.report.userPersona.primaryPersona.demographics.location}</div>
+                              <div className="p-2 bg-muted/30 rounded col-span-2"><span className="text-muted-foreground">家庭:</span> {result.report.userPersona.primaryPersona.demographics.familyStatus}</div>
+                            </div>
+                          </div>
+
+                          {/* 消费画像 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><DollarSign className="w-3 h-3" />消费画像</h5>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span>消费能力</span>
+                                <Badge variant={result.report.userPersona.primaryPersona.consumptionProfile.spendingPower === "高" ? "default" : "secondary"}>{result.report.userPersona.primaryPersona.consumptionProfile.spendingPower}</Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <span>价格敏感度</span>
+                                <Badge variant="outline">{result.report.userPersona.primaryPersona.consumptionProfile.pricesSensitivity}</Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <span>品牌忠诚度</span>
+                                <Badge variant="outline">{result.report.userPersona.primaryPersona.consumptionProfile.brandLoyalty}</Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <span>购买频率</span>
+                                <span className="text-muted-foreground">{result.report.userPersona.primaryPersona.consumptionProfile.purchaseFrequency}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <span>预估客单价</span>
+                                <span className="font-medium">{result.report.userPersona.primaryPersona.consumptionProfile.averageOrderValue}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 痛点与需求 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />痛点与需求</h5>
+                            <div className="space-y-2">
+                              {result.report.userPersona.primaryPersona.painPointsAndNeeds.primaryPainPoints.map((p, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs p-2 bg-red-50 dark:bg-red-950/30 rounded">
+                                  <span>{p.point}</span>
+                                  <Badge variant={p.intensity === "高" ? "destructive" : "outline"} className="text-xs">{p.intensity}</Badge>
+                                </div>
+                              ))}
+                              <div className="mt-2">
+                                <p className="text-xs text-muted-foreground mb-1">期望结果:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {result.report.userPersona.primaryPersona.painPointsAndNeeds.desiredOutcomes.map((o, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{o}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 右侧：行为和营销 */}
+                        <div className="space-y-4">
+                          {/* 生活方式 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><Activity className="w-3 h-3" />生活方式</h5>
+                            <p className="text-xs text-muted-foreground mb-2">{result.report.userPersona.primaryPersona.lifestyle.dailyRoutine}</p>
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {result.report.userPersona.primaryPersona.lifestyle.hobbies.map((h, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">{h}</Badge>
+                              ))}
+                            </div>
+                            <p className="text-xs"><span className="text-muted-foreground">技术使用:</span> {result.report.userPersona.primaryPersona.lifestyle.technologyUsage}</p>
+                          </div>
+
+                          {/* 心理特征 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3" />心理特征</h5>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">核心价值观</p>
+                                {result.report.userPersona.primaryPersona.psychographics.coreValues.map((v, i) => (
+                                  <p key={i} className="text-xs">• {v}</p>
+                                ))}
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">追求目标</p>
+                                {result.report.userPersona.primaryPersona.psychographics.aspirations.map((a, i) => (
+                                  <p key={i} className="text-xs">• {a}</p>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 购买旅程 */}
+                          <div className="p-3 border rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><Target className="w-3 h-3" />购买决策</h5>
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <p className="text-muted-foreground">认知渠道:</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {result.report.userPersona.primaryPersona.purchaseJourney.awarenessChannels.map((c, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">评估标准:</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {result.report.userPersona.primaryPersona.purchaseJourney.evaluationCriteria.map((c, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">购买触发:</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {result.report.userPersona.primaryPersona.purchaseJourney.purchaseTriggers.map((t, i) => (
+                                    <Badge key={i} className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{t}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 营销建议 */}
+                          <div className="p-3 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-xl">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1"><Zap className="w-3 h-3" />营销建议</h5>
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">最佳触达时间</span>
+                                <span className="font-medium">{result.report.userPersona.primaryPersona.marketingRecommendations.bestTimeToReach}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">沟通语调</span>
+                                <span>{result.report.userPersona.primaryPersona.marketingRecommendations.messagingTone}</span>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground mb-1">推荐渠道:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {result.report.userPersona.primaryPersona.marketingRecommendations.bestChannels.map((c, i) => (
+                                    <Badge key={i} variant="default" className="text-xs">{c}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground mb-1">推荐内容:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {result.report.userPersona.primaryPersona.marketingRecommendations.contentTypes.map((c, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 获客策略 */}
+                      <div className="mt-6 p-4 border rounded-xl bg-muted/20">
+                        <h5 className="text-sm font-medium mb-3 flex items-center gap-1"><Target className="w-4 h-4" />用户获取策略</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">推荐获客渠道</p>
+                            <div className="space-y-1">
+                              {result.report.userPersona.acquisitionStrategy.recommendedChannels.map((ch, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs p-2 bg-background rounded">
+                                  <span>{ch.channel}</span>
+                                  <Badge variant={ch.priority === "高" ? "default" : "secondary"} className="text-xs">{ch.priority}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">留存策略</p>
+                            <ul className="space-y-1">
+                              {result.report.userPersona.acquisitionStrategy.retentionStrategies.map((s, i) => (
+                                <li key={i} className="text-xs flex items-start gap-1"><CheckCircle className="w-3 h-3 text-green-500 shrink-0 mt-0.5" />{s}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">LTV 优化建议</p>
+                            <ul className="space-y-1">
+                              {result.report.userPersona.acquisitionStrategy.ltvOptimization.map((l, i) => (
+                                <li key={i} className="text-xs flex items-start gap-1"><Lightbulb className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />{l}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t flex items-center gap-4 text-xs">
+                          <span><span className="text-muted-foreground">预估获客成本:</span> <span className="font-bold">{result.report.userPersona.acquisitionStrategy.estimatedCAC}</span></span>
+                          <span><span className="text-muted-foreground">市场增长潜力:</span> <span className="font-medium">{result.report.userPersona.marketSizing.growthPotential}</span></span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* SWOT */}
                   <Card>
@@ -1268,15 +1662,174 @@ export default function Home() {
                     </CardContent>
                   </Card>
 
+                  {/* 竞品分析概览 */}
                   <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-base font-medium flex items-center gap-2"><Award className="w-4 h-4" />竞品对标</CardTitle></CardHeader>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-medium flex items-center gap-2"><Award className="w-4 h-4" />竞品分析</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">置信度 {result.report.competitorAnalysis.overview.analysisConfidence}%</Badge>
+                          <Badge variant={result.report.competitorAnalysis.overview.competitiveIntensity === "激烈" ? "destructive" : "secondary"} className="text-xs">
+                            竞争{result.report.competitorAnalysis.overview.competitiveIntensity}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* 市场格局 */}
+                      <div className="p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-2">市场格局</p>
+                        <p className="text-sm mb-2">{result.report.competitorAnalysis.marketLandscape.marketTrend}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {result.report.competitorAnalysis.marketLandscape.leaderBrands.map((b, i) => (
+                            <Badge key={i} variant="default" className="text-xs">{b}</Badge>
+                          ))}
+                          {result.report.competitorAnalysis.marketLandscape.emergingBrands.map((b, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">{b}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* 定位地图 */}
+                      <div className="p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-2">市场定位</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                          <div>
+                            <span className="text-muted-foreground">当前:</span>
+                            <span className="ml-1">{result.report.competitorAnalysis.positioningMap.xAxis} {result.report.competitorAnalysis.positioningMap.currentPosition.x}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">建议:</span>
+                            <span className="ml-1 text-green-600">{result.report.competitorAnalysis.positioningMap.recommendedPosition.x}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{result.report.competitorAnalysis.positioningMap.positioningGap}</p>
+                      </div>
+
+                      {/* 竞争优势 */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                          <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1">核心优势</p>
+                          <ul className="text-xs space-y-0.5">
+                            {result.report.competitorAnalysis.competitiveAdvantage.currentAdvantages.slice(0, 2).map((a, i) => (
+                              <li key={i}>• {a}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                          <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-1">薄弱环节</p>
+                          <ul className="text-xs space-y-0.5">
+                            {result.report.competitorAnalysis.competitiveAdvantage.vulnerabilities.slice(0, 2).map((v, i) => (
+                              <li key={i}>• {v}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground italic">{result.report.competitorAnalysis.overview.dataSourceSummary}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 竞品详细对比 */}
+                  <Card className="lg:col-span-4">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Target className="w-4 h-4" />
+                        竞品详细对比
+                        <span className="text-xs text-muted-foreground font-normal ml-2">
+                          分析 {result.report.competitorAnalysis.overview.totalCompetitorsAnalyzed} 个竞品
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
-                        {result.report.competitorBenchmarks.map((c, i) => (
-                          <div key={i} className="p-3 bg-muted/50 rounded-lg">
-                            <h4 className="font-medium text-sm">{c.name}</h4>
-                            <p className="text-xs text-muted-foreground mb-2">{c.description}</p>
-                            <div className="flex flex-wrap gap-1">{c.learningPoints.map((p, j) => <Badge key={j} variant="outline" className="text-xs">{p}</Badge>)}</div>
+                      <div className="space-y-4">
+                        {result.report.competitorAnalysis.competitors.map((comp, i) => (
+                          <div key={i} className="p-4 border rounded-xl bg-card">
+                            {/* 竞品头部 */}
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold">{comp.name}</h4>
+                                  <Badge variant="outline" className="text-xs">{comp.category}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{comp.description}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span className="text-xs text-muted-foreground">置信度</span>
+                                  <Badge variant={comp.confidenceLevel >= 85 ? "default" : comp.confidenceLevel >= 70 ? "secondary" : "outline"} className="text-xs">
+                                    {comp.confidenceLevel}%
+                                  </Badge>
+                                </div>
+                                <ScoreRing score={comp.metrics.strengthScore} size={40} />
+                              </div>
+                            </div>
+
+                            {/* 定位对比 */}
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div className="p-2 bg-muted/50 rounded-lg">
+                                <p className="text-xs text-muted-foreground mb-0.5">价格定位</p>
+                                <p className="text-sm font-medium">{comp.positioning.pricePosition}</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded-lg">
+                                <p className="text-xs text-muted-foreground mb-0.5">目标市场</p>
+                                <p className="text-sm font-medium truncate">{comp.positioning.targetMarket}</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded-lg">
+                                <p className="text-xs text-muted-foreground mb-0.5">品牌定位</p>
+                                <p className="text-sm font-medium truncate">{comp.positioning.brandPosition}</p>
+                              </div>
+                            </div>
+
+                            {/* 数据指标 */}
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div className="text-center p-2 border rounded-lg">
+                                <p className="text-xs text-muted-foreground">预估产品数</p>
+                                <p className="text-sm font-bold">{comp.metrics.estimatedProductCount}</p>
+                              </div>
+                              <div className="text-center p-2 border rounded-lg">
+                                <p className="text-xs text-muted-foreground">预估价格区间</p>
+                                <p className="text-sm font-bold">{comp.metrics.estimatedPriceRange}</p>
+                              </div>
+                              <div className="text-center p-2 border rounded-lg">
+                                <p className="text-xs text-muted-foreground">预估市场份额</p>
+                                <p className="text-sm font-bold">{comp.metrics.estimatedMarketShare}</p>
+                              </div>
+                            </div>
+
+                            {/* 优劣势对比 */}
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <p className="text-xs font-medium text-green-600 mb-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" />竞品优势</p>
+                                <ul className="text-xs space-y-0.5 text-muted-foreground">
+                                  {comp.comparison.advantages.map((a, j) => <li key={j}>• {a}</li>)}
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1"><XCircle className="w-3 h-3" />竞品劣势</p>
+                                <ul className="text-xs space-y-0.5 text-muted-foreground">
+                                  {comp.comparison.disadvantages.map((d, j) => <li key={j}>• {d}</li>)}
+                                </ul>
+                              </div>
+                            </div>
+
+                            {/* 战略洞察 */}
+                            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                              <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-1"><Lightbulb className="w-3 h-3" />战略洞察</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <p className="text-muted-foreground mb-1">可借鉴:</p>
+                                  {comp.strategicInsights.whatToLearn.map((w, j) => <p key={j} className="text-green-600">✓ {w}</p>)}
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground mb-1">竞争机会:</p>
+                                  {comp.strategicInsights.opportunities.map((o, j) => <p key={j} className="text-blue-600">→ {o}</p>)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 数据来源 */}
+                            <p className="text-xs text-muted-foreground mt-2 italic">数据来源: {comp.dataSource}</p>
                           </div>
                         ))}
                       </div>

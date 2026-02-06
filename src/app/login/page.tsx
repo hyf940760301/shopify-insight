@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Store, Loader2, Mail, Lock, AlertCircle, Sparkles } from "lucide-react";
+import { Store, Loader2, User, Lock, AlertCircle, Sparkles } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,11 +16,11 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const error = searchParams.get("error");
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(
-    error === "CredentialsSignin" ? "邮箱或密码错误" : null
+    error === "CredentialsSignin" ? "用户名或密码错误" : null
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,14 +30,14 @@ function LoginForm() {
 
     try {
       const result = await signIn("credentials", {
-        email,
+        username,
         password,
         redirect: false,
         callbackUrl,
       });
 
       if (result?.error) {
-        setLoginError(result.error === "CredentialsSignin" ? "邮箱或密码错误" : result.error);
+        setLoginError(result.error === "CredentialsSignin" ? "用户名或密码错误" : result.error);
         setIsLoading(false);
       } else if (result?.ok) {
         router.push(callbackUrl);
@@ -95,20 +95,21 @@ function LoginForm() {
                 </motion.div>
               )}
 
-              {/* Email */}
+              {/* Username */}
               <div className="space-y-2">
-                <Label htmlFor="email">邮箱</Label>
+                <Label htmlFor="username">用户名</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="username"
+                    type="text"
+                    placeholder="请输入用户名"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"
                     required
                     disabled={isLoading}
+                    autoComplete="username"
                   />
                 </div>
               </div>
@@ -121,12 +122,13 @@ function LoginForm() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="请输入密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
                     disabled={isLoading}
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
@@ -135,7 +137,7 @@ function LoginForm() {
               <Button
                 type="submit"
                 className="w-full h-11"
-                disabled={isLoading || !email || !password}
+                disabled={isLoading || !username || !password}
               >
                 {isLoading ? (
                   <>
@@ -148,40 +150,23 @@ function LoginForm() {
               </Button>
             </form>
 
-            {/* Demo Accounts */}
+            {/* Demo Account */}
             <div className="mt-6 pt-6 border-t">
               <p className="text-xs text-muted-foreground text-center mb-3">
                 演示账号
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => {
-                    setEmail("admin@example.com");
-                    setPassword("admin123");
-                  }}
-                  disabled={isLoading}
-                >
-                  管理员账号
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => {
-                    setEmail("user@example.com");
-                    setPassword("admin123");
-                  }}
-                  disabled={isLoading}
-                >
-                  普通用户
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center mt-3">
-                密码: admin123
-              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => {
+                  setUsername("admin");
+                  setPassword("123");
+                }}
+                disabled={isLoading}
+              >
+                快速填充 (admin / 123)
+              </Button>
             </div>
           </CardContent>
         </Card>

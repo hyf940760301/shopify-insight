@@ -5,28 +5,21 @@ import bcrypt from "bcryptjs";
 // 用户数据类型
 interface User {
   id: string;
-  email: string;
+  username: string;
   name: string;
   password: string;
   role: "admin" | "user";
 }
 
 // 模拟用户数据库（生产环境应该使用真实数据库）
-// 密码: admin123 (bcrypt 加密)
+// 密码: 123 (bcrypt 加密)
 const users: User[] = [
   {
     id: "1",
-    email: "admin@example.com",
+    username: "admin",
     name: "管理员",
-    password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu/1u", // admin123
+    password: "$2b$10$6xiSNuwn/cnOFYZGfM6i1u5j8pG4fl551hxhzSn7Ca9V8hUa7ycsm", // 123
     role: "admin",
-  },
-  {
-    id: "2", 
-    email: "user@example.com",
-    name: "测试用户",
-    password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu/1u", // admin123
-    role: "user",
   },
 ];
 
@@ -35,15 +28,15 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "邮箱", type: "email" },
+        username: { label: "用户名", type: "text" },
         password: { label: "密码", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("请输入邮箱和密码");
+        if (!credentials?.username || !credentials?.password) {
+          throw new Error("请输入用户名和密码");
         }
 
-        const user = users.find((u) => u.email === credentials.email);
+        const user = users.find((u) => u.username === credentials.username);
 
         if (!user) {
           throw new Error("用户不存在");
@@ -57,7 +50,7 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          email: user.email,
+          email: user.username, // NextAuth 需要 email 字段，这里用 username 填充
           name: user.name,
           role: user.role,
         };
@@ -86,5 +79,6 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "shopify-insight-ai-secret-key-change-in-production",
+  secret: process.env.NEXTAUTH_SECRET || "shopify-insight-ai-dev-secret-key-2024",
+  debug: process.env.NODE_ENV === "development",
 };
