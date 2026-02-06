@@ -1,27 +1,45 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
-export default withAuth(
-  function middleware(req) {
-    // 如果用户已登录，允许访问
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 允许访问登录页面和 auth API
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/_next") ||
+    pathname.includes(".")
+  ) {
     return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
-    pages: {
-      signIn: "/login",
-    },
   }
-);
 
-// 配置需要保护的路由
+  // 检查是否已登录
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  // 未登录则重定向到登录页
+  if (!token) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
 export const config = {
   matcher: [
-    // 保护首页和 API（除了 auth 和 health）
-    "/",
-    "/api/analyze/:path*",
-    // 不保护的路由：/login, /api/auth/*, /api/health
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/auth|api/health).*)",
   ],
 };
