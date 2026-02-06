@@ -154,7 +154,8 @@ export interface StrategicRecommendation {
 }
 
 export interface CompetitorBenchmark {
-  name: string;
+  name: string; // 竞品品牌/公司名称
+  websiteUrl: string; // 竞品官网链接
   category: string; // 同品类/替代品/潜在竞品
   description: string;
   confidenceLevel: number; // 置信度 0-100
@@ -577,7 +578,8 @@ ${sampleProductsText}
     },
     "competitors": [
       {
-        "name": "竞品品牌名称（基于品类推断的典型竞品）",
+        "name": "竞品品牌名称（真实存在的品牌名）",
+        "websiteUrl": "https://www.example.com",
         "category": "同品类/替代品/潜在竞品",
         "description": "竞品简要描述",
         "confidenceLevel": 85,
@@ -633,8 +635,9 @@ ${sampleProductsText}
 12. competitors 数组至少包含 3 个竞品分析，按相关性排序`;
 }
 
-// Available models to try
+// Available models to try (按优先级排序)
 const GEMINI_MODELS = [
+  "gemini-3.0-pro",
   "gemini-2.0-flash",
   "gemini-1.5-flash-latest",
   "gemini-1.5-flash-001",

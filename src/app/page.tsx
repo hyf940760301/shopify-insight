@@ -313,6 +313,7 @@ interface AIReport {
     };
     competitors: {
       name: string;
+      websiteUrl: string;
       category: string;
       description: string;
       confidenceLevel: number;
@@ -1750,8 +1751,29 @@ export default function Home() {
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
                                   <h4 className="font-semibold">{comp.name}</h4>
+                                  {comp.websiteUrl && (
+                                    <a 
+                                      href={comp.websiteUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-500 hover:text-blue-600 transition-colors"
+                                      title="访问官网"
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </a>
+                                  )}
                                   <Badge variant="outline" className="text-xs">{comp.category}</Badge>
                                 </div>
+                                {comp.websiteUrl && (
+                                  <a 
+                                    href={comp.websiteUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-500 hover:underline mb-1 inline-block"
+                                  >
+                                    {comp.websiteUrl}
+                                  </a>
+                                )}
                                 <p className="text-sm text-muted-foreground">{comp.description}</p>
                               </div>
                               <div className="text-right shrink-0">
