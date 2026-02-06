@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^1.40.0",
     "@google/generative-ai": "^0.24.1",
     "@types/turndown": "^5.0.6",
     "axios": "^1.13.4",

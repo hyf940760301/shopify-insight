@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import TurndownService from "turndown";
 import { signOut, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -74,6 +76,8 @@ import {
   Hash,
   LogOut,
   User,
+  Brain,
+  SearchCheck,
 } from "lucide-react";
 
 // ============ TYPES ============
@@ -318,6 +322,7 @@ interface AIReport {
       description: string;
       confidenceLevel: number;
       dataSource: string;
+      sourceType?: "search_grounded" | "ai_inference";
       positioning: {
         targetMarket: string;
         pricePosition: string;
@@ -502,6 +507,51 @@ function PriceTierBadge({ tier }: { tier: string }) {
 // Product Detail Modal
 function ProductDetailModal({ product, onClose, domain }: { product: ProductDetail; onClose: () => void; domain: string }) {
   const [selectedImage, setSelectedImage] = useState(0);
+  const [descLang, setDescLang] = useState<"en" | "zh">("en");
+  const [translatedDesc, setTranslatedDesc] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
+
+  // Convert HTML description to markdown
+  const descriptionMarkdown = useMemo(() => {
+    if (!product.description) return "";
+    try {
+      const turndownService = new TurndownService({
+        headingStyle: "atx",
+        bulletListMarker: "-",
+        codeBlockStyle: "fenced",
+      });
+      return turndownService.turndown(product.description);
+    } catch {
+      // Fallback: if turndown fails, return raw text
+      return product.description.replace(/<[^>]+>/g, "");
+    }
+  }, [product.description]);
+
+  // Translate description on demand
+  const handleTranslate = useCallback(async () => {
+    if (translatedDesc) {
+      setDescLang("zh");
+      return;
+    }
+    setIsTranslating(true);
+    setTranslateError(null);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: descriptionMarkdown }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "翻译失败");
+      setTranslatedDesc(data.translated);
+      setDescLang("zh");
+    } catch (err) {
+      setTranslateError(err instanceof Error ? err.message : "翻译失败");
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [descriptionMarkdown, translatedDesc]);
 
   return (
     <motion.div
@@ -698,10 +748,57 @@ function ProductDetailModal({ product, onClose, domain }: { product: ProductDeta
                 {/* Description */}
                 {product.description && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">产品描述</p>
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg max-h-32 overflow-y-auto">
-                      {product.description.substring(0, 500)}
-                      {product.description.length > 500 && "..."}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-muted-foreground">产品描述</p>
+                      <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                        <button
+                          onClick={() => setDescLang("en")}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-all ${
+                            descLang === "en"
+                              ? "bg-background text-foreground shadow-sm font-medium"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          English
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (translatedDesc) {
+                              setDescLang("zh");
+                            } else {
+                              handleTranslate();
+                            }
+                          }}
+                          disabled={isTranslating}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1 ${
+                            descLang === "zh"
+                              ? "bg-background text-foreground shadow-sm font-medium"
+                              : "text-muted-foreground hover:text-foreground"
+                          } ${isTranslating ? "opacity-60 cursor-wait" : ""}`}
+                        >
+                          {isTranslating && (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          )}
+                          中文
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-sm bg-muted p-4 rounded-lg max-h-64 overflow-y-auto">
+                      {descLang === "en" ? (
+                        <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                          <ReactMarkdown>{descriptionMarkdown}</ReactMarkdown>
+                        </div>
+                      ) : translatedDesc ? (
+                        <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                          <ReactMarkdown>{translatedDesc}</ReactMarkdown>
+                        </div>
+                      ) : null}
+                      {translateError && (
+                        <p className="text-xs text-destructive mt-2 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {translateError}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1741,15 +1838,30 @@ export default function Home() {
                           分析 {result.report.competitorAnalysis.overview.totalCompetitorsAnalyzed} 个竞品
                         </span>
                       </CardTitle>
+                      {/* 数据来源图例 */}
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex items-center gap-1">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <SearchCheck className="w-3 h-3" />搜索验证
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">通过 Google 搜索确认的真实竞品</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                            <Brain className="w-3 h-3" />AI 推理
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">基于 AI 行业知识推理的竞品</span>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
                         {result.report.competitorAnalysis.competitors.map((comp, i) => (
-                          <div key={i} className="p-4 border rounded-xl bg-card">
+                          <div key={i} className={`p-4 border rounded-xl bg-card ${comp.sourceType === "search_grounded" ? "border-emerald-200 dark:border-emerald-800/50" : comp.sourceType === "ai_inference" ? "border-amber-200 dark:border-amber-800/50" : ""}`}>
                             {/* 竞品头部 */}
                             <div className="flex items-start justify-between mb-3">
                               <div>
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <h4 className="font-semibold">{comp.name}</h4>
                                   {comp.websiteUrl && (
                                     <a 
@@ -1763,6 +1875,15 @@ export default function Home() {
                                     </a>
                                   )}
                                   <Badge variant="outline" className="text-xs">{comp.category}</Badge>
+                                  {comp.sourceType === "search_grounded" ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                      <SearchCheck className="w-3 h-3" />搜索验证
+                                    </span>
+                                  ) : comp.sourceType === "ai_inference" ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                      <Brain className="w-3 h-3" />AI 推理
+                                    </span>
+                                  ) : null}
                                 </div>
                                 {comp.websiteUrl && (
                                   <a 
@@ -1851,7 +1972,9 @@ export default function Home() {
                             </div>
 
                             {/* 数据来源 */}
-                            <p className="text-xs text-muted-foreground mt-2 italic">数据来源: {comp.dataSource}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <p className="text-xs text-muted-foreground italic">数据来源: {comp.dataSource}</p>
+                            </div>
                           </div>
                         ))}
                       </div>

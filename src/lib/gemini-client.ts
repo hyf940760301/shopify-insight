@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { AIContext } from "./data-aggregator";
 
 // Structured AI Report Types
@@ -160,6 +161,7 @@ export interface CompetitorBenchmark {
   description: string;
   confidenceLevel: number; // 置信度 0-100
   dataSource: string; // 数据来源说明
+  sourceType: "search_grounded" | "ai_inference"; // 数据来源类型
   positioning: {
     targetMarket: string;
     pricePosition: "更低" | "相近" | "更高";
@@ -635,6 +637,274 @@ ${sampleProductsText}
 12. competitors 数组至少包含 3 个竞品分析，按相关性排序`;
 }
 
+// Build competitor-specific prompt for search-grounded analysis
+function buildCompetitorPrompt(context: AIContext): string {
+  const {
+    store_meta,
+    stats,
+    top_tags,
+    vendor_analysis,
+    product_type_analysis,
+    discount_analysis,
+    variant_analysis,
+    tech_analysis,
+    sample_products,
+  } = context;
+
+  const sampleProductsText = sample_products
+    .slice(0, 6)
+    .map(
+      (p) =>
+        `${p.title} | $${p.price}${p.compare_at_price ? ` (原价$${p.compare_at_price})` : ""} | ${p.vendor} | ${p.product_type}`
+    )
+    .join("\n");
+
+  const vendorText = vendor_analysis
+    .slice(0, 5)
+    .map((v) => `${v.vendor}: ${v.productCount}个, 均价$${v.avgPrice}`)
+    .join("; ");
+
+  const typeText = product_type_analysis
+    .slice(0, 5)
+    .map((t) => `${t.type}: ${t.count}个`)
+    .join("; ");
+
+  const tagsText = top_tags.slice(0, 15).map((t) => t.tag).join(", ");
+
+  return `你是一位专业的竞品情报分析师。请基于以下目标店铺信息，通过搜索找出该店铺的真实竞争对手，并进行详细对比分析。
+
+# 目标店铺信息
+
+基本信息:
+- 名称: ${store_meta.title}
+- 域名: ${store_meta.domain}
+- 描述: ${store_meta.description || "无"}
+- 语言: ${tech_analysis.language}, 货币: ${tech_analysis.currency}
+
+商品数据:
+- 总数: ${stats.total_products}个, SKU: ${variant_analysis.totalVariants}
+- 均价: $${stats.average_price}, 中位数: $${stats.median_price}
+- 价格区间: $${stats.min_price} - $${stats.max_price}
+- 打折率: ${discount_analysis.discountPercentage}%
+
+供应商: ${vendorText}
+产品类型: ${typeText}
+热门标签: ${tagsText}
+
+商品样本:
+${sampleProductsText}
+
+---
+
+# 分析任务
+
+请找出该店铺的真实竞争对手，分为两组：
+
+## 第一组：搜索验证的竞品（3-5个）
+通过搜索找出真实存在的竞争品牌，包括：
+1. 同品类直接竞品（售卖相似产品的品牌/电商）
+2. 替代品竞品（提供替代方案的品牌）
+3. 潜在竞品（可能进入该市场的品牌）
+
+要求：
+- 必须使用真实品牌名称（如 "Glossier"、"Allbirds" 等真实存在的品牌）
+- 必须提供可访问的真实官网 URL
+- sourceType 标记为 "search_grounded"
+- confidenceLevel 范围 75-95
+- 分析必须基于搜索到的真实信息
+
+## 第二组：AI推理的竞品（2-3个）
+基于你的行业知识额外推断的竞争对手：
+- 使用真实品牌名称
+- sourceType 标记为 "ai_inference"
+- confidenceLevel 范围 60-75（必须低于搜索验证的竞品）
+- dataSource 明确标注 "基于AI行业知识推理"
+
+请严格按照以下 JSON 格式输出（只输出 JSON，不要有任何其他文字）：
+
+{
+  "overview": {
+    "totalCompetitorsAnalyzed": 5,
+    "marketConcentration": "高/中/低",
+    "competitiveIntensity": "激烈/中等/温和",
+    "analysisConfidence": 80,
+    "dataSourceSummary": "基于Google搜索验证的真实竞品数据，结合AI行业知识推理"
+  },
+  "marketLandscape": {
+    "leaderBrands": ["真实头部品牌1", "真实头部品牌2"],
+    "emergingBrands": ["真实新兴品牌1"],
+    "nichePlayersCount": 5,
+    "marketTrend": "市场整体趋势描述"
+  },
+  "positioningMap": {
+    "xAxis": "价格定位",
+    "yAxis": "品牌/品质定位",
+    "currentPosition": { "x": "低/中/高", "y": "低/中/高" },
+    "recommendedPosition": { "x": "低/中/高", "y": "低/中/高" },
+    "positioningGap": "定位差距分析"
+  },
+  "competitiveAdvantage": {
+    "currentAdvantages": ["优势1", "优势2"],
+    "sustainableAdvantages": ["可持续优势1"],
+    "vulnerabilities": ["薄弱环节1"],
+    "recommendedFocus": ["聚焦方向1"]
+  },
+  "competitors": [
+    {
+      "name": "真实品牌名称",
+      "websiteUrl": "https://www.real-brand.com",
+      "category": "同品类/替代品/潜在竞品",
+      "description": "品牌简要描述",
+      "confidenceLevel": 85,
+      "dataSource": "通过Google搜索验证的竞品信息",
+      "sourceType": "search_grounded",
+      "positioning": {
+        "targetMarket": "目标市场",
+        "pricePosition": "更低/相近/更高",
+        "brandPosition": "品牌定位"
+      },
+      "metrics": {
+        "estimatedProductCount": "产品数量范围",
+        "estimatedPriceRange": "价格区间",
+        "estimatedMarketShare": "市场份额",
+        "strengthScore": 75
+      },
+      "comparison": {
+        "advantages": ["竞品优势1", "竞品优势2"],
+        "disadvantages": ["竞品劣势1", "竞品劣势2"],
+        "differentiators": ["差异点1", "差异点2"]
+      },
+      "strategicInsights": {
+        "whatToLearn": ["可借鉴1"],
+        "whatToAvoid": ["需规避1"],
+        "opportunities": ["机会1"]
+      }
+    },
+    {
+      "name": "AI推理品牌名称",
+      "websiteUrl": "https://www.inferred-brand.com",
+      "category": "同品类/替代品/潜在竞品",
+      "description": "品牌简要描述",
+      "confidenceLevel": 68,
+      "dataSource": "基于AI行业知识推理",
+      "sourceType": "ai_inference",
+      "positioning": {
+        "targetMarket": "目标市场",
+        "pricePosition": "更低/相近/更高",
+        "brandPosition": "品牌定位"
+      },
+      "metrics": {
+        "estimatedProductCount": "产品数量范围",
+        "estimatedPriceRange": "价格区间",
+        "estimatedMarketShare": "市场份额",
+        "strengthScore": 70
+      },
+      "comparison": {
+        "advantages": ["竞品优势1"],
+        "disadvantages": ["竞品劣势1"],
+        "differentiators": ["差异点1"]
+      },
+      "strategicInsights": {
+        "whatToLearn": ["可借鉴1"],
+        "whatToAvoid": ["需规避1"],
+        "opportunities": ["机会1"]
+      }
+    }
+  ]
+}
+
+注意：
+1. 【重要】所有输出内容必须使用中文（除了品牌名、URL 和 JSON 字段名）
+2. 搜索验证的竞品（sourceType: "search_grounded"）必须是通过搜索确认的真实品牌
+3. AI推理的竞品（sourceType: "ai_inference"）的 confidenceLevel 不超过 75
+4. websiteUrl 必须是真实有效的官网 URL
+5. competitors 数组中搜索验证的竞品排在前面，AI推理的排在后面
+6. 每个竞品都必须包含完整的分析维度（positioning, metrics, comparison, strategicInsights）
+7. 只输出 JSON，不要有任何其他文字`;
+}
+
+// Initialize new GenAI client for search-grounded features
+function getNewGenAIClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY 环境变量未设置");
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
+// Generate competitor analysis with Google Search grounding
+async function generateCompetitorWithSearch(
+  context: AIContext
+): Promise<CompetitorAnalysis | null> {
+  try {
+    const ai = getNewGenAIClient();
+    const prompt = buildCompetitorPrompt(context);
+
+    const searchModels = ["gemini-2.0-flash", "gemini-2.0-flash-001"];
+
+    for (const modelName of searchModels) {
+      try {
+        console.log(
+          `[CompetitorSearch] Trying model with Google Search grounding: ${modelName}`
+        );
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            tools: [{ googleSearch: {} }],
+            temperature: 0.3,
+            maxOutputTokens: 6144,
+          },
+        });
+
+        const text = response.text;
+
+        if (!text) {
+          console.warn(`[CompetitorSearch] Empty response from ${modelName}`);
+          continue;
+        }
+
+        console.log(
+          `[CompetitorSearch] Got response from ${modelName} (${text.length} chars)`
+        );
+
+        // Parse JSON from response
+        let jsonStr = text.trim();
+        if (jsonStr.startsWith("```json")) jsonStr = jsonStr.slice(7);
+        else if (jsonStr.startsWith("```")) jsonStr = jsonStr.slice(3);
+        if (jsonStr.endsWith("```")) jsonStr = jsonStr.slice(0, -3);
+        jsonStr = jsonStr.trim();
+
+        const parsed = JSON.parse(jsonStr);
+
+        // Ensure all competitors have sourceType
+        if (parsed.competitors && Array.isArray(parsed.competitors)) {
+          parsed.competitors = parsed.competitors.map(
+            (c: CompetitorBenchmark) => ({
+              ...c,
+              sourceType: c.sourceType || "search_grounded",
+            })
+          );
+        }
+
+        console.log(
+          `[CompetitorSearch] Successfully parsed ${parsed.competitors?.length || 0} competitors (search-grounded)`
+        );
+        return parsed as CompetitorAnalysis;
+      } catch (error) {
+        console.error(`[CompetitorSearch] Model ${modelName} failed:`, error);
+        continue;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[CompetitorSearch] Search-grounded analysis failed:", error);
+    return null;
+  }
+}
+
 // Available models to try (按优先级排序)
 const GEMINI_MODELS = [
   "gemini-3.0-pro",
@@ -673,8 +943,8 @@ function parseAIResponse(text: string): AIReport {
   }
 }
 
-// Generate analysis report using Gemini
-export async function generateAnalysisReport(
+// Generate main analysis report (without enhanced competitor data)
+async function generateMainReport(
   context: AIContext
 ): Promise<AIReport> {
   const genAI = getGeminiClient();
@@ -689,7 +959,7 @@ export async function generateAnalysisReport(
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.3, // Lower temperature for more consistent JSON output
+          temperature: 0.3,
           topP: 0.8,
           topK: 40,
           maxOutputTokens: 8192,
@@ -706,7 +976,6 @@ export async function generateAnalysisReport(
 
       console.log(`Successfully got response from model: ${modelName}`);
       
-      // Parse the JSON response
       const report = parseAIResponse(text);
       console.log("Successfully parsed AI report");
       
@@ -756,4 +1025,40 @@ export async function generateAnalysisReport(
   }
 
   throw new Error("AI 分析生成失败，请稍后重试");
+}
+
+// Generate analysis report using Gemini (with parallel search-grounded competitor analysis)
+export async function generateAnalysisReport(
+  context: AIContext
+): Promise<AIReport> {
+  console.log("[Analyze] Starting parallel generation: main report + competitor search");
+
+  // Run main report and search-grounded competitor analysis in parallel
+  const [mainReport, searchCompetitors] = await Promise.all([
+    generateMainReport(context),
+    generateCompetitorWithSearch(context).catch((err) => {
+      console.error("[CompetitorSearch] Failed (will use fallback):", err);
+      return null;
+    }),
+  ]);
+
+  // Merge competitor analysis
+  if (searchCompetitors && searchCompetitors.competitors?.length > 0) {
+    console.log(
+      `[Analyze] Using search-grounded competitor analysis (${searchCompetitors.competitors.length} competitors)`
+    );
+    mainReport.competitorAnalysis = searchCompetitors;
+  } else {
+    console.log("[Analyze] Using fallback competitor analysis from main report");
+    // Mark existing competitors as ai_inference since they come from the main prompt
+    if (mainReport.competitorAnalysis?.competitors) {
+      mainReport.competitorAnalysis.competitors =
+        mainReport.competitorAnalysis.competitors.map((c) => ({
+          ...c,
+          sourceType: (c.sourceType || "ai_inference") as "search_grounded" | "ai_inference",
+        }));
+    }
+  }
+
+  return mainReport;
 }
