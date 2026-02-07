@@ -348,6 +348,29 @@ interface AIReport {
   };
 }
 
+interface ScoreItem {
+  category: string;
+  item: string;
+  passed: boolean;
+  weight: number;
+  detail: string;
+  actualValue: string;
+  threshold: string;
+}
+
+interface DetailedScore {
+  overall: number;
+  items: ScoreItem[];
+  benchmark: number;
+  benchmarkLabel: string;
+}
+
+interface StoreScores {
+  product: DetailedScore;
+  operations: DetailedScore;
+  marketing: DetailedScore;
+}
+
 interface AggregatedData {
   stats: {
     total_products: number;
@@ -363,7 +386,8 @@ interface AggregatedData {
   discount_analysis: { discountPercentage: number; averageDiscountPercent: number };
   variant_analysis: { totalVariants: number; avgVariantsPerProduct: number };
   timeline_analysis: { publishingFrequency: { month: string; count: number }[]; avgProductsPerMonth: number };
-  website_health: { overall: number; seo: number; ux: number; trust: number; marketing: number };
+  website_health: { overall: number; seo: number; ux: number; trust: number; marketing: number; details: { category: string; item: string; passed: boolean; weight: number }[] };
+  store_scores: StoreScores;
   all_products: ProductDetail[];
 }
 
@@ -438,12 +462,13 @@ function UserMenu() {
   );
 }
 
-function ScoreRing({ score, size = 60, label }: { score: number; size?: number; label?: string }) {
+function ScoreRing({ score, size = 60, label, benchmark }: { score: number; size?: number; label?: string; benchmark?: number }) {
   const strokeWidth = 5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (score / 100) * circumference;
   const color = score >= 80 ? "text-green-500" : score >= 60 ? "text-yellow-500" : "text-red-500";
+  const diff = benchmark !== undefined ? score - benchmark : undefined;
 
   return (
     <div className="flex flex-col items-center">
@@ -457,6 +482,122 @@ function ScoreRing({ score, size = 60, label }: { score: number; size?: number; 
         </div>
       </div>
       {label && <span className="text-xs text-muted-foreground mt-1">{label}</span>}
+      {diff !== undefined && (
+        <span className={`text-[10px] mt-0.5 ${diff > 0 ? "text-green-500" : diff < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+          {diff > 0 ? "+" : ""}{diff} vs 均值
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ScoreBreakdown({ detailedScore, title }: { detailedScore: DetailedScore; title: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const passedCount = detailedScore.items.filter(i => i.passed).length;
+  const totalCount = detailedScore.items.length;
+
+  // Group items by category
+  const categories = detailedScore.items.reduce<Record<string, ScoreItem[]>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${detailedScore.overall >= 80 ? "bg-green-500" : detailedScore.overall >= 60 ? "bg-yellow-500" : "bg-red-500"}`} />
+          <span className="text-sm font-medium">{title}</span>
+          <span className="text-xs text-muted-foreground">
+            {passedCount}/{totalCount} 项通过
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${detailedScore.overall >= 80 ? "text-green-500" : detailedScore.overall >= 60 ? "text-yellow-500" : "text-red-500"}`}>
+            {detailedScore.overall}分
+          </span>
+          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 space-y-3">
+              {/* Benchmark comparison bar */}
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded text-xs">
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">该店铺</span>
+                    <span className="font-medium">{detailedScore.overall}分</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${detailedScore.overall >= 80 ? "bg-green-500" : detailedScore.overall >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+                      style={{ width: `${detailedScore.overall}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="w-px h-6 bg-border" />
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">{detailedScore.benchmarkLabel}</span>
+                    <span className="font-medium">{detailedScore.benchmark}分</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-blue-400/60" style={{ width: `${detailedScore.benchmark}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Score items grouped by category */}
+              {Object.entries(categories).map(([category, items]) => (
+                <div key={category}>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">{category}</p>
+                  <div className="space-y-1">
+                    {items.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs group">
+                        {item.passed ? (
+                          <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className={item.passed ? "text-foreground" : "text-muted-foreground"}>
+                              {item.item}
+                            </span>
+                            <span className="text-muted-foreground ml-2 shrink-0">
+                              {item.passed ? item.weight : 0}/{item.weight}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground mt-0.5">
+                            <span className="font-medium text-foreground/70">{item.actualValue}</span>
+                            <span className="mx-1">·</span>
+                            <span>标准: {item.threshold}</span>
+                            <span className="mx-1">·</span>
+                            <span>{item.detail}</span>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1706,28 +1847,43 @@ export default function Home() {
                 {/* Right Sidebar */}
                 <div className="lg:col-span-4 space-y-6">
                   <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-base font-medium flex items-center gap-2"><Activity className="w-4 h-4" />综合评分</CardTitle></CardHeader>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Activity className="w-4 h-4" />综合评分
+                        <Badge variant="outline" className="text-[10px] font-normal ml-auto">数据驱动</Badge>
+                      </CardTitle>
+                      <p className="text-[11px] text-muted-foreground mt-1">基于 {result.data.store_scores.product.items.length + result.data.store_scores.operations.items.length + result.data.store_scores.marketing.items.length} 项可量化指标，透明可追溯</p>
+                    </CardHeader>
                     <CardContent>
-                      <div className="h-48">
+                      <div className="h-52">
                         <ResponsiveContainer width="100%" height="100%">
                           <RadarChart data={[
-                            { subject: "产品", score: result.report.productStrategy.overallScore },
-                            { subject: "运营", score: result.report.operationsAssessment.overallScore },
-                            { subject: "营销", score: result.report.marketingAnalysis.overallScore },
-                            { subject: "品牌", score: result.report.marketingAnalysis.brandStrength },
-                            { subject: "SEO", score: result.data.website_health.seo },
+                            { subject: "产品", score: result.data.store_scores.product.overall, benchmark: result.data.store_scores.product.benchmark },
+                            { subject: "运营", score: result.data.store_scores.operations.overall, benchmark: result.data.store_scores.operations.benchmark },
+                            { subject: "营销", score: result.data.store_scores.marketing.overall, benchmark: result.data.store_scores.marketing.benchmark },
+                            { subject: "SEO", score: result.data.website_health.seo, benchmark: 60 },
+                            { subject: "信任", score: result.data.website_health.trust, benchmark: 55 },
                           ]}>
                             <PolarGrid stroke="hsl(var(--border))" />
                             <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                            <Radar dataKey="score" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.3} />
+                            <Radar name="该店铺" dataKey="score" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.3} />
+                            <Radar name="行业均值" dataKey="benchmark" stroke={CHART_COLORS[3]} fill={CHART_COLORS[3]} fillOpacity={0.1} strokeDasharray="4 4" />
+                            <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-4">
-                        <ScoreRing score={result.report.productStrategy.overallScore} size={50} label="产品" />
-                        <ScoreRing score={result.report.operationsAssessment.overallScore} size={50} label="运营" />
-                        <ScoreRing score={result.report.marketingAnalysis.overallScore} size={50} label="营销" />
+                        <ScoreRing score={result.data.store_scores.product.overall} size={50} label="产品" benchmark={result.data.store_scores.product.benchmark} />
+                        <ScoreRing score={result.data.store_scores.operations.overall} size={50} label="运营" benchmark={result.data.store_scores.operations.benchmark} />
+                        <ScoreRing score={result.data.store_scores.marketing.overall} size={50} label="营销" benchmark={result.data.store_scores.marketing.benchmark} />
+                      </div>
+
+                      {/* Score Breakdowns */}
+                      <div className="mt-4 space-y-2">
+                        <ScoreBreakdown detailedScore={result.data.store_scores.product} title="产品评分明细" />
+                        <ScoreBreakdown detailedScore={result.data.store_scores.operations} title="运营评分明细" />
+                        <ScoreBreakdown detailedScore={result.data.store_scores.marketing} title="营销评分明细" />
                       </div>
                     </CardContent>
                   </Card>

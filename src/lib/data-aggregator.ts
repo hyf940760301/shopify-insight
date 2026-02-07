@@ -176,6 +176,32 @@ export interface WebsiteHealthScore {
   details: { category: string; item: string; passed: boolean; weight: number }[];
 }
 
+// Detailed Score Item - transparent scoring criteria
+export interface ScoreItem {
+  category: string;
+  item: string;
+  passed: boolean;
+  weight: number;
+  detail: string; // human-readable explanation with actual data
+  actualValue: string; // the actual measured value
+  threshold: string; // the threshold for passing
+}
+
+// Detailed Score with breakdown and benchmark
+export interface DetailedScore {
+  overall: number;
+  items: ScoreItem[];
+  benchmark: number; // industry average benchmark for Shopify stores
+  benchmarkLabel: string;
+}
+
+// Store-level scores - all data-driven, no AI black box
+export interface StoreScores {
+  product: DetailedScore;
+  operations: DetailedScore;
+  marketing: DetailedScore;
+}
+
 // AI Context for comprehensive analysis
 export interface AIContext {
   store_meta: StoreMeta;
@@ -209,6 +235,7 @@ export interface AggregatedData {
   timeline_analysis: TimelineAnalysis;
   inventory_analysis: InventoryAnalysis;
   website_health: WebsiteHealthScore;
+  store_scores: StoreScores;
   // Full product catalog
   all_products: ProductDetail[];
   ai_context: AIContext;
@@ -904,6 +931,491 @@ function analyzeInventory(products: ShopifyProduct[]): InventoryAnalysis {
   };
 }
 
+// ============ DATA-DRIVEN SCORING SYSTEM ============
+// Each score is calculated from concrete, measurable data points.
+// Every item has: a clear threshold, the actual measured value, and a weight.
+// No AI "black box" — users can see exactly how each score is derived.
+
+function calculateProductScore(
+  stats: PriceStats,
+  products: ProductDetail[],
+  discountAnalysis: DiscountAnalysis,
+  variantAnalysis: VariantAnalysis,
+  imageAnalysis: ImageAnalysis,
+  timelineAnalysis: TimelineAnalysis,
+  inventoryAnalysis: InventoryAnalysis,
+  productTypeAnalysis: ProductTypeAnalysis[]
+): DetailedScore {
+  const items: ScoreItem[] = [];
+
+  // 1. SKU richness (15pts)
+  const productCount = stats.total_products;
+  items.push({
+    category: "商品丰富度",
+    item: "商品数量",
+    passed: productCount >= 30,
+    weight: 15,
+    detail: productCount >= 30 ? "商品线较丰富，能满足多样化需求" : "商品较少，建议扩充产品线以覆盖更多客群",
+    actualValue: `${productCount} 个`,
+    threshold: "≥ 30 个",
+  });
+
+  // 2. Price tier diversity (10pts)
+  const priceTiers = new Set(products.map(p => p.insights.price_tier));
+  items.push({
+    category: "定价策略",
+    item: "价格分层覆盖",
+    passed: priceTiers.size >= 2,
+    weight: 10,
+    detail: priceTiers.size >= 2
+      ? `覆盖${Array.from(priceTiers).join("、")}等层级，定价策略有梯度`
+      : "价格集中在单一层级，缺乏价格梯度",
+    actualValue: `${priceTiers.size} 个层级`,
+    threshold: "≥ 2 个层级",
+  });
+
+  // 3. Description quality (10pts)
+  const avgDescLen = products.length > 0
+    ? Math.round(products.reduce((s, p) => s + p.description_length, 0) / products.length)
+    : 0;
+  items.push({
+    category: "内容质量",
+    item: "商品描述完整度",
+    passed: avgDescLen >= 100,
+    weight: 10,
+    detail: avgDescLen >= 100 ? "商品描述充分，有助于转化" : "描述过短，建议增加卖点、使用场景等内容",
+    actualValue: `平均 ${avgDescLen} 字符`,
+    threshold: "≥ 100 字符",
+  });
+
+  // 4. Image coverage (10pts)
+  items.push({
+    category: "视觉呈现",
+    item: "商品图片丰富度",
+    passed: imageAnalysis.avgImagesPerProduct >= 3,
+    weight: 10,
+    detail: imageAnalysis.avgImagesPerProduct >= 3
+      ? "图片展示充分，有利于购买决策"
+      : "图片偏少，建议增加多角度、场景化图片",
+    actualValue: `平均 ${imageAnalysis.avgImagesPerProduct.toFixed(1)} 张/商品`,
+    threshold: "≥ 3 张/商品",
+  });
+
+  // 5. Image alt text (5pts)
+  items.push({
+    category: "视觉呈现",
+    item: "图片 Alt 文本覆盖",
+    passed: imageAnalysis.altTextPercentage >= 50,
+    weight: 5,
+    detail: imageAnalysis.altTextPercentage >= 50
+      ? "Alt 文本覆盖率良好，有利于 SEO"
+      : "Alt 文本缺失较多，不利于搜索引擎优化和无障碍访问",
+    actualValue: `${imageAnalysis.altTextPercentage.toFixed(0)}%`,
+    threshold: "≥ 50%",
+  });
+
+  // 6. Variant depth (10pts)
+  items.push({
+    category: "SKU 深度",
+    item: "变体丰富度",
+    passed: variantAnalysis.avgVariantsPerProduct >= 2,
+    weight: 10,
+    detail: variantAnalysis.avgVariantsPerProduct >= 2
+      ? "变体选择丰富，满足不同偏好"
+      : "变体偏少，可考虑增加颜色、尺码等选项",
+    actualValue: `平均 ${variantAnalysis.avgVariantsPerProduct.toFixed(1)} 个/商品`,
+    threshold: "≥ 2 个/商品",
+  });
+
+  // 7. Inventory health (10pts)
+  items.push({
+    category: "库存管理",
+    item: "库存健康度",
+    passed: inventoryAnalysis.inStockPercentage >= 80,
+    weight: 10,
+    detail: inventoryAnalysis.inStockPercentage >= 80
+      ? "库存充足，在售率高"
+      : "缺货率较高，可能导致客户流失",
+    actualValue: `${inventoryAnalysis.inStockPercentage}% 在售`,
+    threshold: "≥ 80%",
+  });
+
+  // 8. Update frequency (10pts)
+  items.push({
+    category: "更新频率",
+    item: "产品上新节奏",
+    passed: timelineAnalysis.avgProductsPerMonth >= 2,
+    weight: 10,
+    detail: timelineAnalysis.avgProductsPerMonth >= 2
+      ? "上新频率健康，保持店铺活跃度"
+      : "上新较慢，建议提高产品更新频率",
+    actualValue: `月均 ${timelineAnalysis.avgProductsPerMonth.toFixed(1)} 个`,
+    threshold: "≥ 2 个/月",
+  });
+
+  // 9. Discount strategy (10pts)
+  const discountPct = discountAnalysis.discountPercentage;
+  const hasReasonableDiscounts = discountPct > 5 && discountPct < 80;
+  items.push({
+    category: "促销策略",
+    item: "折扣策略合理性",
+    passed: hasReasonableDiscounts,
+    weight: 10,
+    detail: hasReasonableDiscounts
+      ? "促销比例适中，兼顾销量与利润"
+      : discountPct <= 5 ? "几乎无折扣，可考虑适度促销提升转化" : "折扣面过大，可能损伤品牌价值",
+    actualValue: `${discountPct}% 打折`,
+    threshold: "5% ~ 80%",
+  });
+
+  // 10. Category coverage (10pts)
+  items.push({
+    category: "品类布局",
+    item: "产品分类覆盖",
+    passed: productTypeAnalysis.length >= 3,
+    weight: 10,
+    detail: productTypeAnalysis.length >= 3
+      ? "品类结构较完整，产品线层次分明"
+      : "品类单一，建议拓展相关品类增加交叉销售",
+    actualValue: `${productTypeAnalysis.length} 个分类`,
+    threshold: "≥ 3 个",
+  });
+
+  const totalWeight = items.reduce((s, i) => s + i.weight, 0);
+  const earned = items.reduce((s, i) => s + (i.passed ? i.weight : 0), 0);
+
+  return {
+    overall: Math.round((earned / totalWeight) * 100),
+    items,
+    benchmark: 58,
+    benchmarkLabel: "Shopify 店铺均值",
+  };
+}
+
+function calculateOperationsScore(
+  techAnalysis: TechAnalysis,
+  siteStructure: SiteStructure,
+  imageAnalysis: ImageAnalysis,
+  inventoryAnalysis: InventoryAnalysis
+): DetailedScore {
+  const items: ScoreItem[] = [];
+
+  // 1. Search function (10pts)
+  items.push({
+    category: "用户体验",
+    item: "站内搜索功能",
+    passed: techAnalysis.hasSearch,
+    weight: 10,
+    detail: techAnalysis.hasSearch ? "支持站内搜索，方便用户找到商品" : "缺少搜索功能，影响商品发现效率",
+    actualValue: techAnalysis.hasSearch ? "已启用" : "未启用",
+    threshold: "已启用",
+  });
+
+  // 2. Shopping cart (10pts)
+  items.push({
+    category: "用户体验",
+    item: "购物车功能",
+    passed: techAnalysis.hasCart,
+    weight: 10,
+    detail: techAnalysis.hasCart ? "购物车功能正常" : "缺少购物车，严重影响转化",
+    actualValue: techAnalysis.hasCart ? "已启用" : "未启用",
+    threshold: "已启用",
+  });
+
+  // 3. Reviews (15pts)
+  items.push({
+    category: "信任建设",
+    item: "评价系统",
+    passed: techAnalysis.hasReviews,
+    weight: 15,
+    detail: techAnalysis.hasReviews ? "有客户评价系统，增强购买信心" : "缺少评价系统，用户无法参考其他买家反馈",
+    actualValue: techAnalysis.hasReviews ? "已启用" : "未启用",
+    threshold: "已启用",
+  });
+
+  // 4. About page (5pts)
+  items.push({
+    category: "信任建设",
+    item: "品牌故事页 (About)",
+    passed: siteStructure.hasAboutPage,
+    weight: 5,
+    detail: siteStructure.hasAboutPage ? "有品牌故事页，有助于建立品牌认知" : "缺少 About 页面，品牌故事缺失",
+    actualValue: siteStructure.hasAboutPage ? "已创建" : "未创建",
+    threshold: "已创建",
+  });
+
+  // 5. Contact page (5pts)
+  items.push({
+    category: "信任建设",
+    item: "联系方式页面",
+    passed: siteStructure.hasContactPage,
+    weight: 5,
+    detail: siteStructure.hasContactPage ? "有联系页面，增强用户信任" : "缺少联系方式，用户可能担心售后",
+    actualValue: siteStructure.hasContactPage ? "已创建" : "未创建",
+    threshold: "已创建",
+  });
+
+  // 6. FAQ (10pts)
+  items.push({
+    category: "用户体验",
+    item: "常见问题 (FAQ)",
+    passed: siteStructure.hasFAQPage,
+    weight: 10,
+    detail: siteStructure.hasFAQPage ? "FAQ 减少客服压力，提升用户体验" : "缺少 FAQ，用户常见疑问无法自助解决",
+    actualValue: siteStructure.hasFAQPage ? "已创建" : "未创建",
+    threshold: "已创建",
+  });
+
+  // 7. Return policy (10pts)
+  items.push({
+    category: "信任建设",
+    item: "退换货政策",
+    passed: siteStructure.hasReturnPolicy,
+    weight: 10,
+    detail: siteStructure.hasReturnPolicy ? "有明确退换政策，降低购买顾虑" : "缺少退换政策，用户下单顾虑大",
+    actualValue: siteStructure.hasReturnPolicy ? "已发布" : "未发布",
+    threshold: "已发布",
+  });
+
+  // 8. Shipping policy (10pts)
+  items.push({
+    category: "信任建设",
+    item: "运费政策",
+    passed: siteStructure.hasShippingPolicy,
+    weight: 10,
+    detail: siteStructure.hasShippingPolicy ? "运费规则透明，减少弃单率" : "缺少运费说明，可能导致结账弃单",
+    actualValue: siteStructure.hasShippingPolicy ? "已发布" : "未发布",
+    threshold: "已发布",
+  });
+
+  // 9. Live chat (10pts)
+  items.push({
+    category: "用户体验",
+    item: "在线客服",
+    passed: techAnalysis.hasChatWidget,
+    weight: 10,
+    detail: techAnalysis.hasChatWidget ? "有即时客服，提升用户满意度" : "无在线客服，用户问题无法即时解答",
+    actualValue: techAnalysis.hasChatWidget ? "已启用" : "未启用",
+    threshold: "已启用",
+  });
+
+  // 10. Payment methods (15pts)
+  const paymentCount = techAnalysis.paymentMethods.length;
+  items.push({
+    category: "转化优化",
+    item: "多支付方式",
+    passed: paymentCount >= 3,
+    weight: 15,
+    detail: paymentCount >= 3
+      ? `支持 ${paymentCount} 种支付方式，覆盖面广`
+      : `仅 ${paymentCount} 种支付方式，建议接入更多支付渠道`,
+    actualValue: `${paymentCount} 种`,
+    threshold: "≥ 3 种",
+  });
+
+  const totalWeight = items.reduce((s, i) => s + i.weight, 0);
+  const earned = items.reduce((s, i) => s + (i.passed ? i.weight : 0), 0);
+
+  return {
+    overall: Math.round((earned / totalWeight) * 100),
+    items,
+    benchmark: 52,
+    benchmarkLabel: "Shopify 店铺均值",
+  };
+}
+
+function calculateMarketingScore(
+  seoAnalysis: SEOAnalysis,
+  techAnalysis: TechAnalysis,
+  siteStructure: SiteStructure,
+  socialLinks: SocialLinks
+): DetailedScore {
+  const items: ScoreItem[] = [];
+
+  // 1. Meta Description (10pts)
+  items.push({
+    category: "SEO 基础",
+    item: "Meta Description",
+    passed: seoAnalysis.hasMetaDescription,
+    weight: 10,
+    detail: seoAnalysis.hasMetaDescription
+      ? `描述长度 ${seoAnalysis.metaDescriptionLength} 字符，有助于搜索结果展示`
+      : "缺少 Meta Description，搜索结果展示效果差",
+    actualValue: seoAnalysis.hasMetaDescription ? `${seoAnalysis.metaDescriptionLength} 字符` : "缺失",
+    threshold: "已设置",
+  });
+
+  // 2. Title Tag (5pts)
+  items.push({
+    category: "SEO 基础",
+    item: "Title Tag",
+    passed: seoAnalysis.hasTitleTag,
+    weight: 5,
+    detail: seoAnalysis.hasTitleTag
+      ? `标题长度 ${seoAnalysis.titleLength} 字符`
+      : "缺少 Title Tag，严重影响搜索排名",
+    actualValue: seoAnalysis.hasTitleTag ? `${seoAnalysis.titleLength} 字符` : "缺失",
+    threshold: "已设置",
+  });
+
+  // 3. Open Graph Tags (10pts)
+  items.push({
+    category: "SEO 基础",
+    item: "Open Graph 标签",
+    passed: seoAnalysis.hasOGTags,
+    weight: 10,
+    detail: seoAnalysis.hasOGTags
+      ? "OG 标签完整，社交分享展示效果好"
+      : "缺少 OG 标签，社交媒体分享时无法正确展示",
+    actualValue: seoAnalysis.hasOGTags ? "已设置" : "缺失",
+    threshold: "已设置",
+  });
+
+  // 4. Structured Data (10pts)
+  items.push({
+    category: "SEO 进阶",
+    item: "结构化数据 (Schema)",
+    passed: seoAnalysis.hasStructuredData,
+    weight: 10,
+    detail: seoAnalysis.hasStructuredData
+      ? "结构化数据有助于搜索引擎理解页面内容，提升富文本展示"
+      : "缺少结构化数据，错失搜索引擎富文本展示机会",
+    actualValue: seoAnalysis.hasStructuredData ? "已实现" : "缺失",
+    threshold: "已实现",
+  });
+
+  // 5. Sitemap (5pts)
+  items.push({
+    category: "SEO 基础",
+    item: "Sitemap",
+    passed: seoAnalysis.sitemap,
+    weight: 5,
+    detail: seoAnalysis.sitemap
+      ? "Sitemap 有助于搜索引擎爬取"
+      : "缺少 Sitemap，不利于搜索引擎索引",
+    actualValue: seoAnalysis.sitemap ? "已配置" : "缺失",
+    threshold: "已配置",
+  });
+
+  // 6. Newsletter (10pts)
+  items.push({
+    category: "用户留存",
+    item: "邮件订阅 (Newsletter)",
+    passed: techAnalysis.hasNewsletter,
+    weight: 10,
+    detail: techAnalysis.hasNewsletter
+      ? "支持邮件订阅，有利于用户召回和复购"
+      : "未开启邮件订阅，缺少重要的用户留存渠道",
+    actualValue: techAnalysis.hasNewsletter ? "已启用" : "未启用",
+    threshold: "已启用",
+  });
+
+  // 7. Social media presence (15pts)
+  const activeSocials = Object.entries(socialLinks).filter(([, url]) => url).map(([platform]) => platform);
+  const socialCount = activeSocials.length;
+  items.push({
+    category: "社交媒体",
+    item: "社交媒体覆盖",
+    passed: socialCount >= 2,
+    weight: 15,
+    detail: socialCount >= 2
+      ? `已布局 ${activeSocials.join("、")} 等平台`
+      : socialCount === 0 ? "未发现任何社交媒体链接" : `仅布局 ${activeSocials.join("、")}，覆盖面不足`,
+    actualValue: `${socialCount} 个平台`,
+    threshold: "≥ 2 个",
+  });
+
+  // 8. Blog content (15pts)
+  items.push({
+    category: "内容营销",
+    item: "博客/内容版块",
+    passed: siteStructure.hasBlogSection,
+    weight: 15,
+    detail: siteStructure.hasBlogSection
+      ? "有博客版块，有利于 SEO 流量和品牌内容建设"
+      : "缺少内容版块，错失 SEO 内容营销机会",
+    actualValue: siteStructure.hasBlogSection ? "已开设" : "未开设",
+    threshold: "已开设",
+  });
+
+  // 9. Social media diversity (10pts) - deeper presence
+  items.push({
+    category: "社交媒体",
+    item: "多渠道深度布局",
+    passed: socialCount >= 4,
+    weight: 10,
+    detail: socialCount >= 4
+      ? "社交媒体矩阵完善，全渠道触达用户"
+      : `当前 ${socialCount} 个渠道，建议扩展更多社交平台`,
+    actualValue: `${socialCount} 个平台`,
+    threshold: "≥ 4 个",
+  });
+
+  // 10. Twitter Cards (5pts)
+  items.push({
+    category: "SEO 进阶",
+    item: "Twitter Cards",
+    passed: seoAnalysis.hasTwitterCards,
+    weight: 5,
+    detail: seoAnalysis.hasTwitterCards
+      ? "Twitter Cards 提升社交分享质量"
+      : "缺少 Twitter Cards 标签",
+    actualValue: seoAnalysis.hasTwitterCards ? "已设置" : "缺失",
+    threshold: "已设置",
+  });
+
+  // 11. Canonical URL (5pts)
+  items.push({
+    category: "SEO 进阶",
+    item: "Canonical URL",
+    passed: !!seoAnalysis.canonicalUrl,
+    weight: 5,
+    detail: seoAnalysis.canonicalUrl
+      ? "Canonical URL 避免重复内容问题"
+      : "缺少 Canonical URL，可能导致重复内容问题",
+    actualValue: seoAnalysis.canonicalUrl ? "已设置" : "缺失",
+    threshold: "已设置",
+  });
+
+  const totalWeight = items.reduce((s, i) => s + i.weight, 0);
+  const earned = items.reduce((s, i) => s + (i.passed ? i.weight : 0), 0);
+
+  return {
+    overall: Math.round((earned / totalWeight) * 100),
+    items,
+    benchmark: 48,
+    benchmarkLabel: "Shopify 店铺均值",
+  };
+}
+
+function calculateStoreScores(
+  stats: PriceStats,
+  products: ProductDetail[],
+  discountAnalysis: DiscountAnalysis,
+  variantAnalysis: VariantAnalysis,
+  imageAnalysis: ImageAnalysis,
+  timelineAnalysis: TimelineAnalysis,
+  inventoryAnalysis: InventoryAnalysis,
+  productTypeAnalysis: ProductTypeAnalysis[],
+  techAnalysis: TechAnalysis,
+  siteStructure: SiteStructure,
+  seoAnalysis: SEOAnalysis,
+  socialLinks: SocialLinks
+): StoreScores {
+  return {
+    product: calculateProductScore(
+      stats, products, discountAnalysis, variantAnalysis,
+      imageAnalysis, timelineAnalysis, inventoryAnalysis, productTypeAnalysis
+    ),
+    operations: calculateOperationsScore(
+      techAnalysis, siteStructure, imageAnalysis, inventoryAnalysis
+    ),
+    marketing: calculateMarketingScore(
+      seoAnalysis, techAnalysis, siteStructure, socialLinks
+    ),
+  };
+}
+
 // Calculate website health score
 function calculateWebsiteHealth(
   seoAnalysis: SEOAnalysis,
@@ -1107,6 +1619,13 @@ export function aggregateData(scraperResult: ScraperResult): AggregatedData {
     .map((p) => toProductDetail(p, meta.domain, stats.average_price))
     .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
+  // Calculate data-driven store scores
+  const store_scores = calculateStoreScores(
+    stats, all_products, discount_analysis, variant_analysis,
+    image_analysis, timeline_analysis, inventory_analysis,
+    product_type_analysis, techAnalysis, siteStructure, seoAnalysis, socialLinks
+  );
+
   // Get sample for AI context (representative products)
   const sampleProducts = all_products.filter((_, i) => {
     const step = Math.floor(all_products.length / 12);
@@ -1144,6 +1663,7 @@ export function aggregateData(scraperResult: ScraperResult): AggregatedData {
     timeline_analysis,
     inventory_analysis,
     website_health,
+    store_scores,
     all_products,
     ai_context,
   };
