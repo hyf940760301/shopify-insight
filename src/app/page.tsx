@@ -414,6 +414,11 @@ interface AnalysisResult {
   meta: { title: string; description: string; domain: string };
   socialLinks: SocialLinks;
   techAnalysis: TechAnalysis;
+  cache?: {
+    hit: boolean;
+    age: string;
+    generatedAt: string;
+  };
 }
 
 // ============ COMPONENTS ============
@@ -1217,7 +1222,7 @@ export default function Home() {
     }
   }, [isLoading]);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (forceRefresh = false) => {
     if (!url.trim()) {
       setError({ message: "请输入店铺 URL" });
       return;
@@ -1231,7 +1236,7 @@ export default function Home() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), forceRefresh }),
       });
       const responseData = await response.json();
       if (!response.ok) {
@@ -1278,9 +1283,9 @@ export default function Home() {
             <div className="relative flex gap-3 p-2 bg-card rounded-2xl border shadow-lg">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input type="text" placeholder="输入 Shopify 店铺域名..." value={url} onChange={(e) => setUrl(e.target.value)} onKeyPress={(e) => e.key === "Enter" && !isLoading && handleAnalyze()} disabled={isLoading} className="pl-12 h-14 text-lg border-0 bg-transparent focus-visible:ring-0" />
+                <Input type="text" placeholder="输入 Shopify 店铺域名..." value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !isLoading && handleAnalyze()} disabled={isLoading} className="pl-12 h-14 text-lg border-0 bg-transparent focus-visible:ring-0" />
               </div>
-              <Button onClick={handleAnalyze} disabled={isLoading} size="lg" className="h-14 px-8 rounded-xl">
+              <Button onClick={() => handleAnalyze()} disabled={isLoading} size="lg" className="h-14 px-8 rounded-xl">
                 {isLoading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />分析中</> : <>开始分析<ArrowRight className="w-5 h-5 ml-2" /></>}
               </Button>
             </div>
@@ -1388,6 +1393,26 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            {result.cache && (
+              <div className="flex items-center gap-2">
+                {result.cache.hit && (
+                  <Badge variant="outline" className="text-[10px] gap-1">
+                    <Clock className="w-3 h-3" />
+                    {result.cache.age}
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 gap-1"
+                  onClick={() => handleAnalyze(true)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                  重新生成
+                </Button>
+              </div>
+            )}
             <Button variant="outline" onClick={() => { setResult(null); setUrl(""); }}>分析新店铺</Button>
             <UserMenu />
           </div>

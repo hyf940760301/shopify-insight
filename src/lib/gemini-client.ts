@@ -853,7 +853,7 @@ async function generateCompetitorWithSearch(
           contents: prompt,
           config: {
             tools: [{ googleSearch: {} }],
-            temperature: 0.3,
+            temperature: 0,
             maxOutputTokens: 6144,
           },
         });
@@ -959,9 +959,9 @@ async function generateMainReport(
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
-          temperature: 0.3,
-          topP: 0.8,
-          topK: 40,
+          temperature: 0,
+          topP: 1,
+          topK: 1,
           maxOutputTokens: 8192,
         },
       });

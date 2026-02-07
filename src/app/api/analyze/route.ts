@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeShopifyStore } from "@/lib/shopify-scraper";
 import { aggregateData, AggregatedData } from "@/lib/data-aggregator";
 import { generateAnalysisReport, AIReport } from "@/lib/gemini-client";
+import { analysisCache, MemoryCache } from "@/lib/cache";
 
 // Request body type
 interface AnalyzeRequest {
   url: string;
+  forceRefresh?: boolean;
 }
 
 // Response type
@@ -43,6 +45,11 @@ interface AnalyzeResponse {
     paymentMethods: string[];
     thirdPartyApps: string[];
   };
+  cache?: {
+    hit: boolean;
+    age: string; // human-readable, e.g. "3 小时前生成"
+    generatedAt: string; // ISO timestamp
+  };
 }
 
 // Validate URL
@@ -67,9 +74,30 @@ export async function POST(request: NextRequest) {
     }
 
     const url = body.url.trim();
+    const forceRefresh = body.forceRefresh === true;
 
     if (!isValidUrl(url)) {
       return NextResponse.json({ error: "URL 格式无效" }, { status: 400 });
+    }
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = analysisCache.get(url);
+      if (cached) {
+        console.log(`[Analyze] Cache hit for: ${url} (age: ${MemoryCache.formatAge(cached.age)})`);
+        const cachedResponse: AnalyzeResponse = {
+          ...cached.data,
+          cache: {
+            hit: true,
+            age: MemoryCache.formatAge(cached.age),
+            generatedAt: cached.data.report?.generatedAt || new Date(Date.now() - cached.age).toISOString(),
+          },
+        };
+        return NextResponse.json(cachedResponse);
+      }
+    } else {
+      console.log(`[Analyze] Force refresh requested for: ${url}`);
+      analysisCache.delete(url);
     }
 
     console.log(`[Analyze] Starting comprehensive analysis for: ${url}`);
@@ -98,7 +126,21 @@ export async function POST(request: NextRequest) {
       techAnalysis: scraperResult.techAnalysis,
     };
 
-    return NextResponse.json(response);
+    // Store in cache
+    analysisCache.set(url, response);
+    console.log(`[Analyze] Result cached (total cached: ${analysisCache.size})`);
+
+    // Return with cache metadata
+    const responseWithCache: AnalyzeResponse = {
+      ...response,
+      cache: {
+        hit: false,
+        age: "刚刚生成",
+        generatedAt: report.generatedAt || new Date().toISOString(),
+      },
+    };
+
+    return NextResponse.json(responseWithCache);
   } catch (error) {
     console.error("[Analyze] Error:", error);
 

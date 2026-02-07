@@ -1,4 +1,4 @@
-# Shopify Insight AI — 工具推广文档
+# Shopify Insight AI — AI 驱动的 Shopify 店铺全维度商业智能分析平台
 
 ---
 
