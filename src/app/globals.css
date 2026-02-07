@@ -400,10 +400,11 @@
 
 /* Title gradient — sophisticated charcoal → muted steel blue → soft silver */
 .landing-title {
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  font-size: clamp(1.4rem, 4.2vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
+  white-space: nowrap;
   background: linear-gradient(
     135deg,
     #b0b8c8 0%,
@@ -411,6 +412,22 @@
     #8b9dc3 50%,
     #c4ccd8 75%,
     #a0aab8 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 6s ease-in-out infinite;
+}
+
+/* Codename "Hedwig" — warm accent gradient to distinguish from main title */
+.landing-title-codename {
+  background: linear-gradient(
+    135deg,
+    #7eb8e0 0%,
+    #a8d8ea 30%,
+    #82b1ff 60%,
+    #5c9ce6 100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;

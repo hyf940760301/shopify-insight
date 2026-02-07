@@ -110,7 +110,7 @@ export default function Home() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-2xl text-center"
+        className="relative z-10 w-full max-w-4xl text-center"
       >
         {/* Icon */}
         <motion.div
@@ -129,7 +129,7 @@ export default function Home() {
           transition={{ delay: 0.25, duration: 0.7 }}
           className="landing-title mb-4"
         >
-          Shopify Insight AI
+          <span className="landing-title-codename">Hedwig</span> — Shopify Insight AI
         </motion.h1>
 
         {/* Subtitle */}
