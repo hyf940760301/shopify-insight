@@ -391,3 +391,125 @@
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
+
+/* ============ Landing Page ============ */
+
+.landing-bg {
+  background: #0a0a0b;
+}
+
+/* Title gradient — sophisticated charcoal → muted steel blue → soft silver */
+.landing-title {
+  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(
+    135deg,
+    #b0b8c8 0%,
+    #e2e6ed 25%,
+    #8b9dc3 50%,
+    #c4ccd8 75%,
+    #a0aab8 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 6s ease-in-out infinite;
+}
+
+.landing-subtitle {
+  font-size: clamp(0.9rem, 1.8vw, 1.15rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Ambient glow */
+.landing-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.landing-glow-1 {
+  width: 500px;
+  height: 500px;
+  top: -10%;
+  left: -5%;
+  background: radial-gradient(circle, rgba(100, 120, 180, 0.15), transparent 70%);
+}
+
+.landing-glow-2 {
+  width: 400px;
+  height: 400px;
+  bottom: -8%;
+  right: -5%;
+  background: radial-gradient(circle, rgba(140, 160, 200, 0.1), transparent 70%);
+}
+
+/* Slide-to-enter track */
+.slide-track {
+  position: relative;
+  width: 320px;
+  height: 56px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.slide-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.slide-thumb {
+  position: relative;
+  z-index: 2;
+  width: 48px;
+  height: 44px;
+  margin-left: 6px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: grab;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: border-color 0.2s;
+}
+
+.slide-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.slide-thumb:active {
+  cursor: grabbing;
+}

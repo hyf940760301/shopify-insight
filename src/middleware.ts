@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 允许访问登录页面和 auth API
+  // 公开页面：首页（Landing）、登录页、auth API、health API、静态资源
   if (
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
@@ -15,17 +16,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 检查是否已登录
+  // 受保护页面（/dashboard、/api/analyze 等）需要登录
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  // 未登录则重定向到登录页
   if (!token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    // 未登录 → 重定向到首页
+    const homeUrl = new URL("/", request.url);
+    return NextResponse.redirect(homeUrl);
   }
 
   return NextResponse.next();
@@ -33,13 +33,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/auth|api/health).*)",
   ],
 };
